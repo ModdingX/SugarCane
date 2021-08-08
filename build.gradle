@@ -1,0 +1,276 @@
+import com.google.gson.JsonArray
+import com.google.gson.JsonElement
+import com.google.gson.JsonObject
+import io.github.noeppi_noeppi.tools.modgradle.ModGradle
+import io.github.noeppi_noeppi.tools.modgradle.api.MappingData
+import io.github.noeppi_noeppi.tools.modgradle.api.McpConfigInfo
+import io.github.noeppi_noeppi.tools.modgradle.api.Versioning
+import net.minecraftforge.gradle.common.util.POMBuilder
+import net.minecraftforge.srgutils.IMappingFile
+import org.apache.maven.artifact.repository.metadata.Metadata
+import org.apache.maven.artifact.repository.metadata.io.xpp3.MetadataXpp3Reader
+import org.apache.maven.artifact.versioning.DefaultArtifactVersion
+import org.objectweb.asm.ClassReader
+import org.objectweb.asm.ClassVisitor
+import org.objectweb.asm.FieldVisitor
+import org.objectweb.asm.Label
+import org.objectweb.asm.MethodVisitor
+import org.objectweb.asm.Opcodes
+
+import javax.annotation.Nullable
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.StandardOpenOption
+import java.util.stream.Collectors
+import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
+import java.util.zip.ZipOutputStream
+
+buildscript {
+    repositories {
+        maven { url = 'https://maven.minecraftforge.net/' }
+        maven { url = 'https://noeppi-noeppi.github.io/MinecraftUtilities/maven' }
+        maven { url = 'file:///home/tux/dev/util/MinecraftUtilities/maven' }
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath 'net.minecraftforge.gradle:ForgeGradle:5.1.14'
+        classpath 'io.github.noeppi_noeppi.tools:ModGradle:1.0.16'
+        classpath 'org.ow2.asm:asm:9.2'
+        classpath 'org.ow2.asm:asm-tree:9.2'
+        classpath 'org.apache.maven:maven-artifact:3.8.1'
+        classpath 'org.apache.maven:maven-repository-metadata:3.8.1'
+        classpath 'com.google.code.findbugs:jsr305:3.0.1'
+    }
+}
+
+println("SugarCane for ${project.minecraft}-${project.mcpconfig} parchment ${project.parchment}")
+
+apply plugin: 'java'
+apply plugin: 'io.github.noeppi_noeppi.tools.modgradle.mapping'
+apply plugin: 'net.minecraftforge.gradle.patcher'
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(Versioning.getJavaVersion(project.minecraft))
+
+project(':modcoderpack') {
+    apply plugin: 'net.minecraftforge.gradle.mcp'
+    mcp {
+        config = "${rootProject.minecraft}-${rootProject.mcpconfig}"
+        pipeline = "joined"
+    }
+}
+
+patcher {
+    parent = project(':modcoderpack')
+    
+    mcVersion = project.minecraft
+    patchedSrc = project.file('build/sources')
+    mappings channel: 'none', version: project.minecraft
+}
+
+repositories {
+    maven { url = 'https://libraries.minecraft.net/' }
+    maven { url = 'https://maven.minecraftforge.net/' }
+    mavenCentral()
+}
+
+dependencies {
+    for (String lib : McpConfigInfo.getInfo("${rootProject.minecraft}-${rootProject.mcpconfig}").getLibraries("joined")) {
+        implementation lib
+    }
+}
+
+compileJava {
+    dependsOn extractMapped
+    options.debug = true
+}
+
+task sanitizeParchment {
+    dependsOn compileJava
+    outputs.upToDateWhen { false }
+    doLast {
+        println("Building SRG -> Official mappings")
+        IMappingFile mappings = MappingData.loadSrgOfficial("${rootProject.minecraft}-${rootProject.mcpconfig}")
+        IMappingFile reverse = mappings.reverse()
+        IMappingFile srgId = MappingData.loadSrgId("${rootProject.minecraft}-${rootProject.mcpconfig}")
+        reverse.chain(srgId).write(project.file('build/official2id.csrg').toPath(), IMappingFile.Format.CSRG, false)
+        println("Loading Forced Parameters")
+        BufferedReader reader = Files.newBufferedReader(project.file('forced_params.txt').toPath())
+        Set<String> forced = reader.lines()
+                .map { it.contains("#") ? it.substring(0, it.indexOf('#')) : it }
+                .map { it.strip() }
+                .filter { !it.isEmpty() }
+                .collect(Collectors.toSet())
+        reader.close()
+        println("Extracting Parchmet data")
+        JsonObject parchment = extractParchment(project.parchment)
+        println("Copying Metadata and Packages")
+        JsonObject sanitized = new JsonObject()
+        sanitized.add("version", parchment.get("version"))
+        sanitized.add("packages", parchment.get("packages"))
+        println("Processing Classes")
+        JsonArray sanitizedClasses = new JsonArray()
+        for (JsonElement elem : parchment.getAsJsonArray("classes")) {
+            JsonObject cls = elem.getAsJsonObject()
+            String name = cls.get("name").getAsString()
+            IMappingFile.IClass mappingCls = reverse.getClass(name)
+            String srgName = mappingCls == null ? name : mappingCls.getMapped()
+            Path path = compileJava.destinationDirectory.get().getAsFile().toPath().resolve(srgName + ".class")
+            ClassReader bytecode = null
+            if (!Files.isRegularFile(path)) {
+                println(" - Skipping class ${name} as no compiled bytecode was found.")
+            } else {
+                InputStream input = Files.newInputStream(path)
+                bytecode = new ClassReader(input)
+                input.close()
+            }
+            JsonObject sanitizedClass = new JsonObject()
+            sanitizedClass.addProperty("name", name)
+            if (cls.has("javadoc")) sanitizedClass.add("javadoc", cls.get("javadoc"))
+            if (cls.has("fields")) sanitizedClass.add("fields", cls.get("fields"))
+            if (cls.has("methods")) {
+                JsonArray sanitizedMethods = new JsonArray()
+                for (JsonElement methodElem : cls.getAsJsonArray("methods")) {
+                    JsonObject method = methodElem.getAsJsonObject()
+                    String methodName = method.get("name").getAsString()
+                    // Skip lambdas
+                    if (!methodName.startsWith('lambda$')) {
+                        JsonObject sanitizedMethod = new JsonObject()
+                        sanitizedMethod.add("name", method.get("name"))
+                        sanitizedMethod.add("descriptor", method.get("descriptor"))
+                        if (method.has("javadoc")) sanitizedMethod.add("javadoc", method.get("javadoc"))
+                        if (method.has("parameters")) {
+                            String methodSrg = mappingCls == null ? methodName : mappingCls.remapMethod(methodName, method.get("descriptor").getAsString())
+                            String methodSrgDesc = reverse.remapDescriptor(method.get("descriptor").getAsString())
+                            IMappingFile.IClass idClass = srgId.getClass(srgName)
+                            String methodId = idClass == null ? null : idClass.remapMethod(methodSrg, methodSrgDesc)
+                            if (methodId == null) {
+                                println(" - Skipping method ${name}#${methodName} as the method has no SRG id.")
+                            }
+                            Set<String> names = bytecode == null ? null : collectNames(bytecode, mappings.getClass(srgName), methodSrg, methodSrgDesc)
+                            if (bytecode != null && methodId != null && names == null) {
+                                println(" - Skipping method ${name}#${methodName} as the method is not found in compiled bytecode.")
+                            }
+                            JsonArray sanitizedParameters = new JsonArray()
+                            for (JsonElement paramElem : method.getAsJsonArray("parameters")) {
+                                JsonObject param = paramElem.getAsJsonObject()
+                                JsonObject sanitizedParam = new JsonObject()
+                                sanitizedParam.add("index", param.get("index"))
+                                if (param.has("javadoc")) sanitizedParam.add("javadoc", param.get("javadoc"))
+                                if (names == null || names.contains(param.get("name").getAsString()) || methodId == null || forced.contains("${methodId}@${param.get("index").getAsInt()}".toString())) {
+                                    sanitizedParam.addProperty("name", "p_${param.get('name').getAsString()}")
+                                } else {
+                                    sanitizedParam.add("name", param.get("name"))
+                                }
+                                sanitizedParameters.add(sanitizedParam)
+                            }
+                            sanitizedMethod.add("parameters", sanitizedParameters)
+                            sanitizedMethods.add(sanitizedMethod)
+                        }
+                    }
+                    sanitizedClass.add("methods", sanitizedMethods)
+                }
+                sanitizedClasses.add(sanitizedClass)
+            }
+        }
+        sanitized.add("classes", sanitizedClasses)
+        println("Writing Result")
+        // No manifest xml so it does not collide with the one from parchment maven
+        Path pomPath = project.file("../MinecraftUtilities/maven/org/parchmentmc/data/parchment-${project.minecraft}/${project.parchment}.sugarcane/parchment-${project.minecraft}-${project.parchment}.sugarcane.pom").toPath()
+        if (!Files.exists(pomPath.getParent())) Files.createDirectories(pomPath.getParent())
+        Writer pom = Files.newBufferedWriter(pomPath, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)
+        pom.write(new POMBuilder("org.parchmentmc.data.parchment", "parchment-${project.minecraft}", "${project.parchment}.sugarcane").build())
+        pom.write('\n')
+        pom.close()
+        Path path = project.file("../MinecraftUtilities/maven/org/parchmentmc/data/parchment-${project.minecraft}/${project.parchment}.sugarcane/parchment-${project.minecraft}-${project.parchment}.sugarcane.zip").toPath()
+        buildParchment(path, sanitized)
+        println("Done")
+    }
+}
+
+task setTestMdkValues {
+    dependsOn sanitizeParchment
+    doLast {
+        InputStream stream = new URL("https://maven.minecraftforge.net/net/minecraftforge/forge/maven-metadata.xml").openStream()
+        Metadata metadata = new MetadataXpp3Reader().read(stream)
+        stream.close()
+        String forge = metadata.versioning.versions.stream()
+                .filter { it.startsWith("${project.minecraft}-")}
+                .sorted(Comparator.comparing(DefaultArtifactVersion::new).reversed())
+                .findFirst().orElseThrow(() -> new IllegalStateException("No matchin forge version found."))
+        Path propertyPath = project.file("../testmdk/gradle.properties").toPath()
+        if (Files.isRegularFile(propertyPath)) {
+            Writer writer = Files.newBufferedWriter(propertyPath, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)
+            writer.write('org.gradle.jvmargs=-Xmx3G\n')
+            writer.write('org.gradle.daemon=false\n')
+            writer.write("mcv=${project.minecraft}\n")
+            writer.write("forge=${forge}\n")
+            writer.write("parchment=${project.parchment}.sugarcane-${project.minecraft}\n")
+            writer.close()
+        }
+    }
+}
+
+task sugarcane {
+    dependsOn sanitizeParchment
+    dependsOn setTestMdkValues
+}
+
+JsonObject extractParchment(String parchment) {
+    ZipInputStream zin = new ZipInputStream(new URL("https://maven.parchmentmc.org/org/parchmentmc/data/parchment-${project.minecraft}/${parchment}/parchment-${project.minecraft}-${parchment}.zip").openStream())
+    for (ZipEntry entry = zin.getNextEntry(); entry != null; entry = zin.getNextEntry()) {
+        String name = entry.getName()
+        if (name.startsWith("/")) name = name.substring(1)
+        if (name == "parchment.json") {
+            Reader reader = new InputStreamReader(zin)
+            JsonObject json = ModGradle.INTERNAL.fromJson(reader, JsonObject.class)
+            reader.close()
+            zin.close()
+            return json
+        }
+    } 
+    zin.close()
+    throw new IllegalStateException("No parchemnt.json file found.")
+}
+
+static void buildParchment(Path output, JsonObject data) {
+    ZipOutputStream zout = new ZipOutputStream(Files.newOutputStream(output, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING))
+    zout.putNextEntry(new ZipEntry("parchment.json"))
+    Writer writer = new OutputStreamWriter(zout)
+    writer.write("${ModGradle.GSON.toJson(data)}\n")
+    writer.close()
+    zout.close()
+}
+
+@Nullable
+static Set<String> collectNames(ClassReader bytecode, @Nullable IMappingFile.IClass cls, String method, String desc) {
+    Set<String> names = null
+    bytecode.accept(new ClassVisitor(Opcodes.ASM9) {
+        
+        @Override
+        FieldVisitor visitField(int access, String name, String descriptor, String signature, Object value) {
+            if ((access | Opcodes.ACC_STATIC) != 0) {
+                if (names == null) names = new HashSet<>()
+                names.add(cls.remapField(name))
+            }
+            return super.visitField(access, name, descriptor, signature, value)
+        }
+
+        @Override
+        MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
+            if (name == method && descriptor == desc) {
+                if (names == null) names = new HashSet<>()
+                return new MethodVisitor(Opcodes.ASM9) {
+                    @Override
+                    void visitLocalVariable(String localName, String localDescriptor, String localSignature, Label localStart, Label localEnd, int localIndex) {
+                        names.add(localName)
+                    }
+                }
+            } else {
+                return null
+            }
+        }
+    }, ClassReader.SKIP_FRAMES)
+    return names
+}
