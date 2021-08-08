@@ -30,7 +30,6 @@ buildscript {
     repositories {
         maven { url = 'https://maven.minecraftforge.net/' }
         maven { url = 'https://noeppi-noeppi.github.io/MinecraftUtilities/maven' }
-        maven { url = 'file:///home/tux/dev/util/MinecraftUtilities/maven' }
         mavenCentral()
     }
 
