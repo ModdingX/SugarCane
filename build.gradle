@@ -15,6 +15,7 @@ import javax.xml.parsers.DocumentBuilder
 import javax.xml.parsers.DocumentBuilderFactory
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
@@ -64,131 +65,138 @@ parchmentPomInput.close()
 
 println("SugarCane for ${forgeVersion} parchment ${parchmentVersion}")
 
-apply plugin: 'java'
-apply plugin: 'net.minecraftforge.gradle'
-apply plugin: 'maven-publish'
+final shouldSkip = Files.exists(Paths.get('/var/www/maven').resolve(project.group.toString().replace('.', '/')).resolve("sugarcane-${project.minecraft}").resolve(parchmentVersion).resolve("sugarcane-${project.minecraft}-${parchmentVersion}.pom"))
 
-minecraft {
-    mappings channel: 'official', version: project.minecraft
-}
+if (shouldSkip) {
+    println("Already generated. Skipping")
+} else {
 
-repositories {
-    maven { url = 'https://maven.parchmentmc.org' }
-    maven { url = 'https://noeppi-noeppi.github.io/MinecraftUtilities/maven' }
-    maven { url = 'file:///home/tux/dev/util/MinecraftUtilities/maven' }
-}
+    apply plugin: 'java'
+    apply plugin: 'net.minecraftforge.gradle'
+    apply plugin: 'maven-publish'
 
-dependencies {
-    minecraft "net.minecraftforge:forge:${forgeVersion}"
-}
-
-task extractMinecraftClasses {
-    outputs.upToDateWhen { false }
-    doLast {
-        File file = MavenArtifactDownloader.generate(project, "net.minecraftforge:forge:${forgeVersion}_mapped_official_${project.minecraft}", false)
-        if (file == null) throw new IllegalStateException("Forge classes not found.")
-        extractZip(file.toPath(), project.file('build/mcdata/classes').toPath())
+    minecraft {
+        mappings channel: 'official', version: project.minecraft
     }
-}
 
-task extractMinecraftSources {
-    outputs.upToDateWhen { false }
-    doLast {
-        File file = MavenArtifactDownloader.generate(project, "net.minecraftforge:forge:${forgeVersion}_mapped_official_${project.minecraft}:sources", false)
-        if (file == null) throw new IllegalStateException("Forge sources not found.")
-        extractZip(file.toPath(), project.file('build/mcdata/sources').toPath())
+    repositories {
+        maven { url = 'https://maven.parchmentmc.org' }
+        maven { url = 'https://noeppi-noeppi.github.io/MinecraftUtilities/maven' }
+        maven { url = 'file:///home/tux/dev/util/MinecraftUtilities/maven' }
     }
-}
 
-task downloadParchment {
-    outputs.upToDateWhen { false }
-    doLast {
-        File file = MavenArtifactDownloader.download(project, "org.parchmentmc.data:parchment-${project.minecraft}:${parchmentVersion}@zip", false)
-        if (file == null) throw new IllegalStateException("Parchment export not found.")
-        Files.copy(file.toPath(), project.file('build/mcdata/parchment.zip').toPath(), StandardCopyOption.REPLACE_EXISTING)
+    dependencies {
+        minecraft "net.minecraftforge:forge:${forgeVersion}"
     }
-}
 
-task extractParchment(type: ExtractFromZipTask) {
-    dependsOn downloadParchment
-    input = project.file('build/mcdata/parchment.zip')
-    output = project.file('build/mcdata/parchment.json')
-    zipPath = 'parchment.json'
-}
+    task extractMinecraftClasses {
+        outputs.upToDateWhen { false }
+        doLast {
+            File file = MavenArtifactDownloader.generate(project, "net.minecraftforge:forge:${forgeVersion}_mapped_official_${project.minecraft}", false)
+            if (file == null) throw new IllegalStateException("Forge classes not found.")
+            extractZip(file.toPath(), project.file('build/mcdata/classes').toPath())
+        }
+    }
 
-task extractInheritance(type: ExtractInheritanceTask) {
-    dependsOn extractMinecraftClasses
-    classes = project.file('build/mcdata/classes')
-    output = project.file('build/mcdata/inheritance.txt')
-    libraryPath = JavaEnvironment.getLibraryPath(project, compileJava)
-}
+    task extractMinecraftSources {
+        outputs.upToDateWhen { false }
+        doLast {
+            File file = MavenArtifactDownloader.generate(project, "net.minecraftforge:forge:${forgeVersion}_mapped_official_${project.minecraft}:sources", false)
+            if (file == null) throw new IllegalStateException("Forge sources not found.")
+            extractZip(file.toPath(), project.file('build/mcdata/sources').toPath())
+        }
+    }
 
-task sanitizeData(type: SanitizeParchmentTask) {
-    outputs.upToDateWhen { true }
-    dependsOn extractInheritance
-    dependsOn extractMinecraftSources
-    dependsOn extractParchment
-    inheritance = project.file('build/mcdata/inheritance.txt')
-    input = project.file('build/mcdata/parchment.json')
-    output = project.file('build/mcdata/sugarcane.json')
-    libraryPath = JavaEnvironment.getLibraryPath(project, compileJava)
-    sources = project.file('build/mcdata/sources')
-    ignore 'mcp'
-    ignore 'net.minecraftforge'
-}
+    task downloadParchment {
+        outputs.upToDateWhen { false }
+        doLast {
+            File file = MavenArtifactDownloader.download(project, "org.parchmentmc.data:parchment-${project.minecraft}:${parchmentVersion}@zip", false)
+            if (file == null) throw new IllegalStateException("Parchment export not found.")
+            Files.copy(file.toPath(), project.file('build/mcdata/parchment.zip').toPath(), StandardCopyOption.REPLACE_EXISTING)
+        }
+    }
 
-task buildSugarCane(type: PackAsZipTask) {
-    dependsOn sanitizeData
-    input = project.file('build/mcdata/sugarcane.json')
-    output = project.file('build/mcdata/sugarcane.zip')
-    zipPath = 'sugarcane.json'
-}
+    task extractParchment(type: ExtractFromZipTask) {
+        dependsOn downloadParchment
+        input = project.file('build/mcdata/parchment.zip')
+        output = project.file('build/mcdata/parchment.json')
+        zipPath = 'parchment.json'
+    }
 
-task artifactSugarCane(type: FileAsArtifactTask) {
-    dependsOn buildSugarCane
-    file = project.file('build/mcdata/sugarcane.zip')
-    archiveBaseName = "sugarcane-${project.minecraft}"
-    archiveVersion = parchmentVersion
-    archiveExtension = 'zip'
-}
+    task extractInheritance(type: ExtractInheritanceTask) {
+        dependsOn extractMinecraftClasses
+        classes = project.file('build/mcdata/classes')
+        output = project.file('build/mcdata/inheritance.txt')
+        libraryPath = JavaEnvironment.getLibraryPath(project, compileJava)
+    }
 
-publishing {
-    publications {
-        mavenJava(MavenPublication) {
-            groupId = project.group
-            artifactId = "sugarcane-${project.minecraft}"
-            version = parchmentVersion
-            artifact artifactSugarCane
-            pom {
-                // Copy license and properties from parchment pom and add forge version
-                withXml {
-                    Element xml = it.asElement()
-                    def propertyNode = xml.ownerDocument.createElement('properties')
-                    for (int i = 0; i < parchmentXml.firstChild.childNodes.length; i++) {
-                        def node = parchmentXml.firstChild.childNodes.item(i)
-                        if (node.nodeType == Node.ELEMENT_NODE && node.nodeName == 'licenses') {
-                            xml.appendChild(xml.ownerDocument.importNode(node, true))
-                        }
-                        if (node.nodeType == Node.ELEMENT_NODE && node.nodeName == 'properties') {
-                            for (int j = 0; j < node.childNodes.length; j++) {
-                                def property = node.childNodes.item(j)
-                                if (property.nodeType == Node.ELEMENT_NODE && property.nodeName == 'minecraft_version') {
-                                    propertyNode.appendChild(xml.ownerDocument.importNode(property, true))
+    task sanitizeData(type: SanitizeParchmentTask) {
+        outputs.upToDateWhen { true }
+        dependsOn extractInheritance
+        dependsOn extractMinecraftSources
+        dependsOn extractParchment
+        inheritance = project.file('build/mcdata/inheritance.txt')
+        input = project.file('build/mcdata/parchment.json')
+        output = project.file('build/mcdata/sugarcane.json')
+        libraryPath = JavaEnvironment.getLibraryPath(project, compileJava)
+        sources = project.file('build/mcdata/sources')
+        ignore 'mcp'
+        ignore 'net.minecraftforge'
+    }
+
+    task buildSugarCane(type: PackAsZipTask) {
+        dependsOn sanitizeData
+        input = project.file('build/mcdata/sugarcane.json')
+        output = project.file('build/mcdata/sugarcane.zip')
+        zipPath = 'sugarcane.json'
+    }
+
+    task artifactSugarCane(type: FileAsArtifactTask) {
+        dependsOn buildSugarCane
+        file = project.file('build/mcdata/sugarcane.zip')
+        archiveBaseName = "sugarcane-${project.minecraft}"
+        archiveVersion = parchmentVersion
+        archiveExtension = 'zip'
+    }
+
+    publishing {
+        publications {
+            mavenJava(MavenPublication) {
+                groupId = project.group
+                artifactId = "sugarcane-${project.minecraft}"
+                version = parchmentVersion
+                artifact artifactSugarCane
+                pom {
+                    // Copy license and properties from parchment pom and add forge version
+                    withXml {
+                        Element xml = it.asElement()
+                        def propertyNode = xml.ownerDocument.createElement('properties')
+                        for (int i = 0; i < parchmentXml.firstChild.childNodes.length; i++) {
+                            def node = parchmentXml.firstChild.childNodes.item(i)
+                            if (node.nodeType == Node.ELEMENT_NODE && node.nodeName == 'licenses') {
+                                xml.appendChild(xml.ownerDocument.importNode(node, true))
+                            }
+                            if (node.nodeType == Node.ELEMENT_NODE && node.nodeName == 'properties') {
+                                for (int j = 0; j < node.childNodes.length; j++) {
+                                    def property = node.childNodes.item(j)
+                                    if (property.nodeType == Node.ELEMENT_NODE && property.nodeName == 'minecraft_version') {
+                                        propertyNode.appendChild(xml.ownerDocument.importNode(property, true))
+                                    }
                                 }
                             }
                         }
+                        def forgeProperty = xml.ownerDocument.createElement('forge_version')
+                        forgeProperty.setTextContent(forgeVersion)
+                        propertyNode.appendChild(forgeProperty)
+                        xml.appendChild(propertyNode)
                     }
-                    def forgeProperty = xml.ownerDocument.createElement('forge_version')
-                    forgeProperty.setTextContent(forgeVersion)
-                    propertyNode.appendChild(forgeProperty)
-                    xml.appendChild(propertyNode)
                 }
             }
         }
-    }
-    repositories {
-        maven {
-            url '/var/www/maven'
+        repositories {
+            maven {
+                url '/var/www/maven'
+            }
         }
     }
 }
