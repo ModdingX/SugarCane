@@ -2,6 +2,7 @@ import io.github.noeppi_noeppi.tools.modgradle.api.JavaEnvironment
 import io.github.noeppi_noeppi.tools.modgradle.util.task.ExtractFromZipTask
 import io.github.noeppi_noeppi.tools.modgradle.util.task.ExtractInheritanceTask
 import io.github.noeppi_noeppi.tools.modgradle.util.task.FileAsArtifactTask
+import io.github.noeppi_noeppi.tools.modgradle.util.task.SanitizeParchmentTask
 import io.github.noeppi_noeppi.tools.modgradle.util.task.PackAsZipTask
 import net.minecraftforge.gradle.common.util.MavenArtifactDownloader
 import org.apache.commons.io.file.PathUtils
@@ -41,6 +42,7 @@ buildscript {
 }
 
 group = 'io.github.noeppi_noeppi.sugarcane'
+final String localMaven = '/var/www/maven'
 
 InputStream forgeMetaStream = new URL("https://maven.minecraftforge.net/net/minecraftforge/forge/maven-metadata.xml").openStream()
 Metadata forgeMetadata = new MetadataXpp3Reader().read(forgeMetaStream)
@@ -65,12 +67,15 @@ parchmentPomInput.close()
 
 println("SugarCane for ${forgeVersion} parchment ${parchmentVersion}")
 
-final shouldSkip = Files.exists(Paths.get('/var/www/maven').resolve(project.group.toString().replace('.', '/')).resolve("sugarcane-${project.minecraft}").resolve(parchmentVersion).resolve("sugarcane-${project.minecraft}-${parchmentVersion}.pom"))
+final shouldSkip = Files.exists(Paths.get(localMaven).resolve(project.group.toString().replace('.', '/')).resolve("sugarcane-${project.minecraft}").resolve(parchmentVersion).resolve("sugarcane-${project.minecraft}-${parchmentVersion}.pom"))
 
 if (shouldSkip) {
     println("Already generated. Skipping")
+    
+    // Generate dummy tasks so it does not fail
+    task clean { }
+    task publish { }
 } else {
-
     apply plugin: 'java'
     apply plugin: 'net.minecraftforge.gradle'
     apply plugin: 'maven-publish'
@@ -195,7 +200,7 @@ if (shouldSkip) {
         }
         repositories {
             maven {
-                url '/var/www/maven'
+                url localMaven
             }
         }
     }
