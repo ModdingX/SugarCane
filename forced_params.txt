@@ -1,8 +1,0 @@
-# Contains all params that are forced to be sanitized. This is updated manually
-# with the latest parchment and forge release
-# Format: srg_method_id@param_bytecode_idx
-
-  8688@3 # Event parameter in ServerLevel#playSound collides with forge patch
- 43906@1 # Forge patch does not use this for field access in Ingredient#<init>
-104658@3 # Event parameter in ClientLevel#playSound collides with forge patch
-157527@2 # Parameter collides with lambda parameter inside the method.
