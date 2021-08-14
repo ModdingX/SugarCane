@@ -94,20 +94,24 @@ if (shouldSkip) {
     }
 
     task extractMinecraftClasses {
+        dependsOn build
         outputs.upToDateWhen { false }
         doLast {
             File file = MavenArtifactDownloader.generate(project, "net.minecraftforge:forge:${forgeVersion}_mapped_official_${project.mcv}", false)
             if (file == null) throw new IllegalStateException("Forge classes not found.")
+            Files.createDirectories(project.file('build/mcdata').toPath())
             Files.copy(file.toPath(), project.file('build/mcdata/forge.jar').toPath(), StandardCopyOption.REPLACE_EXISTING)
             extractZip(file.toPath(), project.file('build/mcdata/classes').toPath())
         }
     }
 
     task extractMinecraftSources {
+        dependsOn build
         outputs.upToDateWhen { false }
         doLast {
             File file = MavenArtifactDownloader.generate(project, "net.minecraftforge:forge:${forgeVersion}_mapped_official_${project.mcv}:sources", false)
             if (file == null) throw new IllegalStateException("Forge sources not found.")
+            Files.createDirectories(project.file('build/mcdata').toPath())
             extractZip(file.toPath(), project.file('build/mcdata/sources').toPath())
         }
     }
@@ -117,6 +121,7 @@ if (shouldSkip) {
         doLast {
             File file = MavenArtifactDownloader.download(project, "org.parchmentmc.data:parchment-${project.mcv}:${parchmentVersion}@zip", false)
             if (file == null) throw new IllegalStateException("Parchment export not found.")
+            Files.createDirectories(project.file('build/mcdata').toPath())
             Files.copy(file.toPath(), project.file('build/mcdata/parchment.zip').toPath(), StandardCopyOption.REPLACE_EXISTING)
         }
     }
