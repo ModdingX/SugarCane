@@ -19,6 +19,10 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
+import java.text.ParseException
+import java.text.SimpleDateFormat
+import java.time.LocalDate
+import java.time.ZoneId
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 
@@ -64,9 +68,30 @@ InputStream parchmentPomInput = new URL("https://maven.parchmentmc.org/org/parch
 final parchmentXml = builder.parse(parchmentPomInput)
 parchmentPomInput.close()
 
-println("SugarCane for ${forgeVersion} parchment ${parchmentVersion}")
+String targetVersion = parchmentVersion
+boolean shouldSkip = Files.exists(Paths.get(localMaven).resolve(project.group.toString().replace('.', '/')).resolve("sugarcane-${project.mcv}").resolve(parchmentVersion).resolve("sugarcane-${project.mcv}-${parchmentVersion}.pom"))
 
-final shouldSkip = Files.exists(Paths.get(localMaven).resolve(project.group.toString().replace('.', '/')).resolve("sugarcane-${project.mcv}").resolve(parchmentVersion).resolve("sugarcane-${project.mcv}-${parchmentVersion}.pom"))
+if (shouldSkip) {
+    SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy.MM.dd")
+    try {
+        LocalDate zdt = LocalDate.ofInstant(dateFormat.parse(parchmentVersion).toInstant(), ZoneId.systemDefault())
+        LocalDate now = LocalDate.now()
+        if (zdt.until(now).getDays() > 14) {
+            // No release for a long time. If forge has been updated since then, generate a new version
+            SimpleDateFormat mavenDateFormat = new SimpleDateFormat("yyyyMMddHHmmss")
+            LocalDate lastForgeUpdate = LocalDate.ofInstant(mavenDateFormat.parse(forgeMetadata.versioning.lastUpdated).toInstant(), ZoneId.systemDefault())
+            if (zdt.until(lastForgeUpdate).getDays() > 1) {
+                targetVersion = dateFormat.format(new Date())
+            }
+        }
+    } catch (ParseException e) {
+        println("Invalid version: " + parchmentVersion + ": " + e.getMessage())
+    }
+}
+
+println("SugarCane for ${forgeVersion} parchment ${parchmentVersion}")
+println("  Version ${targetVersion}")
+
 
 if (shouldSkip) {
     println("Already generated. Skipping")
@@ -167,7 +192,7 @@ if (shouldSkip) {
         dependsOn buildSugarCane
         file = project.file('build/mcdata/sugarcane.zip')
         archiveBaseName = "sugarcane-${project.mcv}"
-        archiveVersion = parchmentVersion
+        archiveVersion = targetVersion
         archiveExtension = 'zip'
     }
 
@@ -176,7 +201,7 @@ if (shouldSkip) {
             mavenJava(MavenPublication) {
                 groupId = project.group
                 artifactId = "sugarcane-${project.mcv}"
-                version = parchmentVersion
+                version = targetVersion
                 artifact artifactSugarCane
                 pom {
                     // Copy license and properties from parchment pom and add forge version
