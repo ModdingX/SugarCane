@@ -82,6 +82,7 @@ if (shouldSkip) {
             LocalDate lastForgeUpdate = LocalDate.ofInstant(mavenDateFormat.parse(forgeMetadata.versioning.lastUpdated).toInstant(), ZoneId.systemDefault())
             if (zdt.until(lastForgeUpdate).getDays() > 1) {
                 targetVersion = dateFormat.format(new Date())
+                shouldSkip = false
             }
         }
     } catch (ParseException e) {
