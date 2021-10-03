@@ -93,7 +93,6 @@ if (shouldSkip) {
 println("SugarCane for ${forgeVersion} parchment ${parchmentVersion}")
 println("  Version ${targetVersion}")
 
-
 if (shouldSkip) {
     println("Already generated. Skipping")
     
@@ -209,6 +208,9 @@ if (shouldSkip) {
                     withXml {
                         Element xml = it.asElement()
                         def propertyNode = xml.ownerDocument.createElement('properties')
+                        def parchmentVersionProperty = xml.ownerDocument.createElement('parchment_version')
+                        parchmentVersionProperty.setTextContent(parchmentVersion)
+                        propertyNode.appendChild(parchmentVersionProperty)
                         for (int i = 0; i < parchmentXml.firstChild.childNodes.length; i++) {
                             def node = parchmentXml.firstChild.childNodes.item(i)
                             if (node.nodeType == Node.ELEMENT_NODE && node.nodeName == 'licenses') {
