@@ -65,7 +65,7 @@ final String parchmentVersion = parchmentMetadata.versioning.versions.stream()
 
 InputStream sugarcaneMetaStream = new URL("https://maven.melanx.de/io/github/noeppi_noeppi/sugarcane/sugarcane-${project.mcv}/maven-metadata.xml").openStream()
 Metadata sugarcaneMetadata = new MetadataXpp3Reader().read(sugarcaneMetaStream)
-sugarcaneMetaStram.close()
+sugarcaneMetaStream.close()
 final String versionForCompare = sugarcaneMetadata.versioning.versions.stream()
         .filter { !it.contains("SNAPSHOT") }
         .sorted(Comparator.comparing(DefaultArtifactVersion::new).reversed())
