@@ -27,7 +27,7 @@ Right after the line `apply plugin: 'net.minecraftforge.gradle'`:
 apply plugin: 'io.github.noeppi_noeppi.tools.modgradle.mapping'
 ```
 
-You can then use the mapping channel `parchment`. A list of version can be found [here](https://maven.melanx.de/io/github/noeppi_noeppi/sugarcane/sugarcane-1.17.1).
+You can then use the mapping channel `sugarcane`. A list of version can be found [here](https://maven.melanx.de/io/github/noeppi_noeppi/sugarcane).
 
 Example:
 
