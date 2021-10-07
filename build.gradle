@@ -98,6 +98,11 @@ if (shouldSkip) {
     }
 }
 
+if (shouldSkip && new DefaultArtifactVersion(parchmentVersion).compareTo(new DefaultArtifactVersion(versionForCompare)) < 0) {
+    // Set targetVersion to versionForCompare to give a better skip message.
+    targetVersion = versionForCompare
+}
+
 println("SugarCane for ${forgeVersion} parchment ${parchmentVersion}")
 println("  Version ${targetVersion}")
 
