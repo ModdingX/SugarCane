@@ -1,11 +1,10 @@
 import io.github.noeppi_noeppi.tools.modgradle.api.JavaEnvironment
 import io.github.noeppi_noeppi.tools.modgradle.api.Versioning
-import io.github.noeppi_noeppi.tools.modgradle.util.task.ExtractFromZipTask
-import io.github.noeppi_noeppi.tools.modgradle.util.task.ExtractInheritanceTask
-import io.github.noeppi_noeppi.tools.modgradle.util.task.FileAsArtifactTask
-import io.github.noeppi_noeppi.tools.modgradle.util.task.SanitizeParchmentTask
-import io.github.noeppi_noeppi.tools.modgradle.util.task.PackAsZipTask
+import io.github.noeppi_noeppi.tools.modgradle.api.task.ExtractFromZipTask
+import io.github.noeppi_noeppi.tools.modgradle.api.task.FileAsArtifactTask
+import io.github.noeppi_noeppi.tools.modgradle.api.task.PackAsZipTask
 import net.minecraftforge.gradle.common.util.MavenArtifactDownloader
+import net.minecraftforge.gradle.common.tasks.JarExec
 import org.apache.commons.io.file.PathUtils
 import org.apache.maven.artifact.repository.metadata.Metadata
 import org.apache.maven.artifact.repository.metadata.io.xpp3.MetadataXpp3Reader
@@ -35,8 +34,8 @@ buildscript {
     }
 
     dependencies {
-        classpath 'net.minecraftforge.gradle:ForgeGradle:5.1.21'
-        classpath 'io.github.noeppi_noeppi.tools:ModGradle:1.0.28'
+        classpath 'net.minecraftforge.gradle:ForgeGradle:5.1.24'
+        classpath 'io.github.noeppi_noeppi.tools:ModGradle:2.0.0'
         classpath 'org.apache.maven:maven-artifact:3.8.1'
         classpath 'org.apache.maven:maven-repository-metadata:3.8.1'
         classpath 'com.google.code.findbugs:jsr305:3.0.1'
@@ -46,6 +45,7 @@ buildscript {
 
 group = 'io.github.noeppi_noeppi.sugarcane'
 final String localMaven = '/var/www/maven'
+final SOURCE_TRANSFORM_VERSION = '1.0.13'
 
 InputStream forgeMetaStream = new URL("https://maven.minecraftforge.net/net/minecraftforge/forge/maven-metadata.xml").openStream()
 Metadata forgeMetadata = new MetadataXpp3Reader().read(forgeMetaStream)
@@ -124,6 +124,7 @@ if (shouldSkip) {
     }
 
     repositories {
+        maven { url = 'https://maven.minecraftforge.net' }
         maven { url = 'https://maven.parchmentmc.org' }
         maven { url = 'https://noeppi-noeppi.github.io/MinecraftUtilities/maven' }
     }
@@ -172,26 +173,34 @@ if (shouldSkip) {
         zipPath = 'parchment.json'
     }
 
-    task extractInheritance(type: ExtractInheritanceTask) {
+    task extractInheritance(type: JarExec) {
         dependsOn extractMinecraftClasses
-        classes = project.file('build/mcdata/classes')
-        output = project.file('build/mcdata/inheritance.txt')
-        libraryPath = JavaEnvironment.getLibraryPath(project, compileJava)
+        tool = "io.github.noeppi_noeppi.tools:SourceTransform:${SOURCE_TRANSFORM_VERSION}:fatjar"
+        args = provider {[
+                'inheritance', '-l',
+                '-c', project.file('build/mcdata/classes').toPath().toAbsolutePath().normalize().toString(),
+                '-p', project.files(JavaEnvironment.getLibraryPath(project, compileJava)).asPath,
+                '-o', project.file('build/mcdata/inheritance.txt').toPath().toAbsolutePath().normalize().toString()
+        ]}
     }
 
-    task sanitizeData(type: SanitizeParchmentTask) {
+    task sanitizeData(type: JarExec) {
         outputs.upToDateWhen { false }
         dependsOn extractInheritance
         dependsOn extractMinecraftSources
         dependsOn extractMinecraftClasses
         dependsOn extractParchment
-        inheritance = project.file('build/mcdata/inheritance.txt')
-        input = project.file('build/mcdata/parchment.json')
-        output = project.file('build/mcdata/sugarcane.json')
-        libraryPath = project.files(project.file('build/mcdata/forge.jar'), JavaEnvironment.getLibraryPath(project, compileJava))
-        sources = project.file('build/mcdata/sources')
-        ignore 'mcp'
-        ignore 'net.minecraftforge'
+        tool = "io.github.noeppi_noeppi.tools:SourceTransform:${SOURCE_TRANSFORM_VERSION}:fatjar"
+        args = provider {[
+                'sanitize',
+                '-i', project.file('build/mcdata/inheritance.txt').toPath().toAbsolutePath().normalize().toString(),
+                '-m', project.file('build/mcdata/parchment.json').toPath().toAbsolutePath().normalize().toString(),
+                '-o', project.file('build/mcdata/sugarcane.json').toPath().toAbsolutePath().normalize().toString(),
+                '-p', project.files(project.file('build/mcdata/forge.jar'), JavaEnvironment.getLibraryPath(project, compileJava)).asPath,
+                '-s', project.file('build/mcdata/sources').toPath().toAbsolutePath().normalize().toString(),
+                '-b', 'mcp',
+                '-b', 'net.minecraftforge'
+        ]}
     }
 
     task buildSugarCane(type: PackAsZipTask) {
