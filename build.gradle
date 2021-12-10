@@ -35,7 +35,7 @@ buildscript {
 
     dependencies {
         classpath 'net.minecraftforge.gradle:ForgeGradle:5.1.24'
-        classpath 'io.github.noeppi_noeppi.tools:ModGradle:2.0.0'
+        classpath 'io.github.noeppi_noeppi.tools:ModGradle:2.0.8'
         classpath 'org.apache.maven:maven-artifact:3.8.1'
         classpath 'org.apache.maven:maven-repository-metadata:3.8.1'
         classpath 'com.google.code.findbugs:jsr305:3.0.1'
