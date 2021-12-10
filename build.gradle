@@ -40,6 +40,10 @@ buildscript {
         classpath 'org.apache.maven:maven-repository-metadata:3.8.1'
         classpath 'com.google.code.findbugs:jsr305:3.0.1'
         classpath 'commons-io:commons-io:2.11.0'
+        
+        // See https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-44228
+        classpath('org.apache.logging.log4j:log4j-api') { version { strictly '[2.15.0,)' } }
+        classpath('org.apache.logging.log4j:log4j-core') { version { strictly '[2.15.0,)' } }
     }
 }
 
@@ -108,7 +112,7 @@ println("  Version ${targetVersion}")
 
 if (shouldSkip) {
     println("Already generated. Skipping")
-    
+
     // Generate dummy tasks so it does not fail
     task clean { }
     task publish { }
@@ -118,7 +122,7 @@ if (shouldSkip) {
     apply plugin: 'maven-publish'
 
     java.toolchain.languageVersion = JavaLanguageVersion.of(Versioning.getJavaVersion(project.mcv))
-    
+
     minecraft {
         mappings channel: 'official', version: project.mcv
     }
