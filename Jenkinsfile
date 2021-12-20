@@ -9,12 +9,19 @@ pipeline {
         MODGRADLE_CI = 'true'
     }
     stages {
+        stage('Clean') {
+            steps {
+                dir ('build') {
+                    deleteDir()
+                }
+            }
+        }
         // Only one stage, just in case a forge or parchment update releases
         // between stages, which would break stuff.
         stage('Publish') {
             steps {
                 echo 'Building'
-                sh './gradlew clean publish'
+                sh './gradlew publish'
             }
         }
     }
