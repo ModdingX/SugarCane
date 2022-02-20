@@ -11,10 +11,12 @@ To use SugarCane, add the following to your `build.gradle`:
 Inside the `buildscript block`:
 ```groovy
 repositories {
+    maven { url = 'https://maven.parchmentmc.org' }
     maven { url = 'https://noeppi-noeppi.github.io/MinecraftUtilities/maven' }
 }
 
 dependencies {
+    classpath 'org.parchmentmc:librarian:<librarian_version>'
     classpath 'io.github.noeppi_noeppi.tools:ModGradle:<modgradle_version>'
 }
 ```
