@@ -9,6 +9,8 @@ import org.apache.commons.io.file.PathUtils
 import org.apache.maven.artifact.repository.metadata.Metadata
 import org.apache.maven.artifact.repository.metadata.io.xpp3.MetadataXpp3Reader
 import org.apache.maven.artifact.versioning.DefaultArtifactVersion
+import org.apache.maven.model.Model;
+import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
 import org.w3c.dom.Element
 import org.w3c.dom.Node
 
@@ -37,8 +39,9 @@ buildscript {
     dependencies {
         classpath 'net.minecraftforge.gradle:ForgeGradle:5.1.26'
         classpath 'io.github.noeppi_noeppi.tools:ModGradle:2.0.9'
-        classpath 'org.apache.maven:maven-artifact:3.8.1'
-        classpath 'org.apache.maven:maven-repository-metadata:3.8.1'
+        classpath 'org.apache.maven:maven-artifact:3.8.5'
+        classpath 'org.apache.maven:maven-model:3.8.5'
+        classpath 'org.apache.maven:maven-repository-metadata:3.8.5'
         classpath 'com.google.code.findbugs:jsr305:3.0.1'
         classpath 'commons-io:commons-io:2.11.0'
         
@@ -96,9 +99,10 @@ if (shouldSkip && versionForCompare != null) {
         LocalDate now = LocalDate.now()
         if (zdt.until(now, ChronoUnit.DAYS) > 14) {
             // No release for a long time. If forge has been updated since then, generate a new version
-            SimpleDateFormat mavenDateFormat = new SimpleDateFormat("yyyyMMddHHmmss")
-            LocalDate lastForgeUpdate = LocalDate.ofInstant(mavenDateFormat.parse(forgeMetadata.versioning.lastUpdated).toInstant(), ZoneId.systemDefault())
-            if (zdt.until(lastForgeUpdate).getDays() > 1) {
+            InputStream sugarCanePom = new URL("https://maven.melanx.de/io/github/noeppi_noeppi/sugarcane/sugarcane-${project.mcv}/${versionForCompare}/sugarcane-${project.mcv}-${versionForCompare}.pom").openStream()
+            Model sugarCaneModel = new MavenXpp3Reader().read(sugarCanePom)
+            String lastForgeVersion = sugarCaneModel.getProperties().getProperty("forge_version")
+            if (lastForgeVersion != null && new DefaultArtifactVersion(lastForgeVersion).compareTo(new DefaultArtifactVersion(forgeVersion))) {
                 targetVersion = dateFormat.format(new Date())
                 shouldSkip = false
             }
