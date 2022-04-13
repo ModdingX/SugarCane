@@ -22,6 +22,7 @@ import java.text.ParseException
 import java.text.SimpleDateFormat
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.temporal.ChronoUnit;
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 
@@ -93,7 +94,7 @@ if (shouldSkip && versionForCompare != null) {
     try {
         LocalDate zdt = LocalDate.ofInstant(dateFormat.parse(versionForCompare).toInstant(), ZoneId.systemDefault())
         LocalDate now = LocalDate.now()
-        if (zdt.until(now).getDays() > 14) {
+        if (zdt.until(now, ChronoUnit.DAYS) > 14) {
             // No release for a long time. If forge has been updated since then, generate a new version
             SimpleDateFormat mavenDateFormat = new SimpleDateFormat("yyyyMMddHHmmss")
             LocalDate lastForgeUpdate = LocalDate.ofInstant(mavenDateFormat.parse(forgeMetadata.versioning.lastUpdated).toInstant(), ZoneId.systemDefault())
