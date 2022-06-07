@@ -1,10 +1,10 @@
-import io.github.noeppi_noeppi.tools.modgradle.api.JavaEnvironment
-import io.github.noeppi_noeppi.tools.modgradle.api.Versioning
-import io.github.noeppi_noeppi.tools.modgradle.api.task.ExtractFromZipTask
-import io.github.noeppi_noeppi.tools.modgradle.api.task.FileAsArtifactTask
-import io.github.noeppi_noeppi.tools.modgradle.api.task.PackAsZipTask
+import org.moddingx.modgradle.api.JavaEnvironment
+import org.moddingx.modgradle.api.Versioning
+import org.moddingx.modgradle.api.task.ClasspathExec
+import org.moddingx.modgradle.api.task.ExtractFromZipTask
+import org.moddingx.modgradle.api.task.FileAsArtifactTask
+import org.moddingx.modgradle.api.task.PackAsZipTask
 import net.minecraftforge.gradle.common.util.MavenArtifactDownloader
-import net.minecraftforge.gradle.common.tasks.JarExec
 import org.apache.commons.io.file.PathUtils
 import org.apache.maven.artifact.repository.metadata.Metadata
 import org.apache.maven.artifact.repository.metadata.io.xpp3.MetadataXpp3Reader
@@ -30,15 +30,15 @@ import java.util.zip.ZipInputStream
 
 buildscript {
     repositories {
-        maven { url = 'https://maven.minecraftforge.net/' }
-        maven { url = 'https://maven.parchmentmc.org/' }
-        maven { url = 'https://noeppi-noeppi.github.io/MinecraftUtilities/maven' }
+        maven { url = 'https://maven.moddingx.org' }
+        maven { url = 'https://maven.minecraftforge.net' }
+        maven { url = 'https://maven.parchmentmc.org' }
         mavenCentral()
     }
 
     dependencies {
-        classpath 'net.minecraftforge.gradle:ForgeGradle:5.1.26'
-        classpath 'io.github.noeppi_noeppi.tools:ModGradle:2.0.9'
+        classpath 'net.minecraftforge.gradle:ForgeGradle:5.1.41'
+        classpath 'org.moddingx:ModGradle:3.0.0'
         classpath 'org.apache.maven:maven-artifact:3.8.5'
         classpath 'org.apache.maven:maven-model:3.8.5'
         classpath 'org.apache.maven:maven-repository-metadata:3.8.5'
@@ -46,14 +46,14 @@ buildscript {
         classpath 'commons-io:commons-io:2.11.0'
         
         // See https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-44228
-        classpath('org.apache.logging.log4j:log4j-api') { version { strictly '[2.16.0,)' } }
-        classpath('org.apache.logging.log4j:log4j-core') { version { strictly '[2.16.0,)' } }
+        classpath('org.apache.logging.log4j:log4j-api') { version { strictly '[2.17.2,)' } }
+        classpath('org.apache.logging.log4j:log4j-core') { version { strictly '[2.17.2,)' } }
     }
 }
 
-group = 'io.github.noeppi_noeppi.sugarcane'
+group = 'org.moddingx.sugarcane'
 final String localMaven = '/var/www/maven'
-final SOURCE_TRANSFORM_VERSION = '1.1.3'
+final SOURCE_TRANSFORM_VERSION = '2.0.0'
 
 InputStream forgeMetaStream = new URL("https://maven.minecraftforge.net/net/minecraftforge/forge/maven-metadata.xml").openStream()
 Metadata forgeMetadata = new MetadataXpp3Reader().read(forgeMetaStream)
@@ -73,7 +73,7 @@ final String parchmentVersion = parchmentMetadata.versioning.versions.stream()
 
 String versionForCompare = null
 try {
-    InputStream sugarcaneMetaStream = new URL("https://maven.melanx.de/io/github/noeppi_noeppi/sugarcane/sugarcane-${project.mcv}/maven-metadata.xml").openStream()
+    InputStream sugarcaneMetaStream = new URL("https://maven.moddingx.org/org/moddingx/sugarcane/sugarcane-${project.mcv}/maven-metadata.xml").openStream()
     Metadata sugarcaneMetadata = new MetadataXpp3Reader().read(sugarcaneMetaStream)
     sugarcaneMetaStream.close()
     versionForCompare = sugarcaneMetadata.versioning.versions.stream()
@@ -138,9 +138,9 @@ if (shouldSkip) {
     }
 
     repositories {
+        maven { url = 'https://maven.moddingx.org' }
         maven { url = 'https://maven.minecraftforge.net' }
         maven { url = 'https://maven.parchmentmc.org' }
-        maven { url = 'https://noeppi-noeppi.github.io/MinecraftUtilities/maven' }
     }
 
     dependencies {
@@ -187,24 +187,24 @@ if (shouldSkip) {
         zipPath = 'parchment.json'
     }
 
-    task extractInheritance(type: JarExec) {
+    task extractInheritance(type: ClasspathExec) {
         dependsOn extractMinecraftClasses
-        tool = "io.github.noeppi_noeppi.tools:SourceTransform:${SOURCE_TRANSFORM_VERSION}:fatjar"
+        tool = "org.moddingx:SourceTransform:${SOURCE_TRANSFORM_VERSION}"
         args = provider {[
-                'inheritance', '-l',
+                'inheritance',
                 '-c', project.file('build/mcdata/classes').toPath().toAbsolutePath().normalize().toString(),
                 '-p', project.files(JavaEnvironment.getLibraryPath(project, compileJava)).asPath,
                 '-o', project.file('build/mcdata/inheritance.txt').toPath().toAbsolutePath().normalize().toString()
         ]}
     }
 
-    task sanitizeData(type: JarExec) {
+    task sanitizeData(type: ClasspathExec) {
         outputs.upToDateWhen { false }
         dependsOn extractInheritance
         dependsOn extractMinecraftSources
         dependsOn extractMinecraftClasses
         dependsOn extractParchment
-        tool = "io.github.noeppi_noeppi.tools:SourceTransform:${SOURCE_TRANSFORM_VERSION}:fatjar"
+        tool = "org.moddingx:SourceTransform:${SOURCE_TRANSFORM_VERSION}"
         args = provider {[
                 'sanitize',
                 '-i', project.file('build/mcdata/inheritance.txt').toPath().toAbsolutePath().normalize().toString(),
