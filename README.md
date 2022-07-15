@@ -1,6 +1,6 @@
 # SugarCane
 
-SugarCane is a gradle script to sanitize [Parchment](https://github.com/ParchmentMC/Parchment) mappings using [SourceTransform](https://github.com/noeppi-noeppi/SourceTransform).
+SugarCane is a gradle script to sanitize [Parchment](https://github.com/ParchmentMC/Parchment) mappings using [SourceTransform](https://github.com/ModdingX/SourceTransform).
 
 This will remove the leading `p` whenever possible and also keep lambda parameters.
 
@@ -12,16 +12,16 @@ Inside the `buildscript block`:
 ```groovy
 repositories {
     maven { url = 'https://maven.parchmentmc.org' }
-    maven { url = 'https://noeppi-noeppi.github.io/MinecraftUtilities/maven' }
+    maven { url = 'https://maven.moddingx.org' }
 }
 
 dependencies {
     classpath 'org.parchmentmc:librarian:<librarian_version>'
-    classpath 'io.github.noeppi_noeppi.tools:ModGradle:<modgradle_version>'
+    classpath 'org.moddingx:ModGradle:<modgradle_version>'
 }
 ```
 
-Replace `<modgradle_version>` with the version of ModGradle to use. See [here](https://github.com/noeppi-noeppi/MinecraftUtilities/tree/master/maven/io/github/noeppi_noeppi/tools/ModGradle).
+Replace `<modgradle_version>` with the version of ModGradle to use. See [here](https://maven.moddingx.org/org/moddingx/ModGradle).
 
 Right after the line `apply plugin: 'net.minecraftforge.gradle'`:
 
@@ -29,7 +29,7 @@ Right after the line `apply plugin: 'net.minecraftforge.gradle'`:
 apply plugin: 'io.github.noeppi_noeppi.tools.modgradle.mapping'
 ```
 
-You can then use the mapping channel `sugarcane`. A list of version can be found [here](https://maven.melanx.de/io/github/noeppi_noeppi/sugarcane).
+You can then use the mapping channel `sugarcane`. A list of versions can be found [here](https://maven.moddingx.org/org/moddingx/sugarcane).
 
 Example:
 
@@ -39,4 +39,4 @@ mappings channel: 'sugarcane', version: '2021.09.05-1.17.1'
 
 ### ModUtils
 
-If you use [ModUtils](https://github.com/noeppi-noeppi/ModUtils), you don't need to apply any extra plugins, you can just use the `sugarcane` channel.
+If you use [ModUtils](https://github.com/ModdingX/ModUtils), you don't need to apply any extra plugins, you can just use the `sugarcane` channel.
