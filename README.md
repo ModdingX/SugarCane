@@ -26,7 +26,7 @@ Replace `<modgradle_version>` with the version of ModGradle to use. See [here](h
 Right after the line `apply plugin: 'net.minecraftforge.gradle'`:
 
 ```groovy
-apply plugin: 'io.github.noeppi_noeppi.tools.modgradle.mapping'
+apply plugin: 'org.moddingx.modgradle.mapping'
 ```
 
 You can then use the mapping channel `sugarcane`. A list of versions can be found [here](https://maven.moddingx.org/org/moddingx/sugarcane).
