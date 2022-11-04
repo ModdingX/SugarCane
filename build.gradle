@@ -99,7 +99,7 @@ if (shouldSkip && versionForCompare != null) {
         LocalDate now = LocalDate.now()
         if (zdt.until(now, ChronoUnit.DAYS) > 14) {
             // No release for a long time. If forge has been updated since then, generate a new version
-            InputStream sugarCanePom = new URL("https://maven.melanx.de/io/github/noeppi_noeppi/sugarcane/sugarcane-${project.mcv}/${versionForCompare}/sugarcane-${project.mcv}-${versionForCompare}.pom").openStream()
+            InputStream sugarCanePom = new URL("https://maven.moddingx.org/org/moddingx/sugarcane/sugarcane-${project.mcv}/${versionForCompare}/sugarcane-${project.mcv}-${versionForCompare}.pom").openStream()
             Model sugarCaneModel = new MavenXpp3Reader().read(sugarCanePom)
             String lastForgeVersion = sugarCaneModel.getProperties().getProperty("forge_version")
             if (lastForgeVersion != null && new DefaultArtifactVersion(lastForgeVersion).compareTo(new DefaultArtifactVersion(forgeVersion))) {
