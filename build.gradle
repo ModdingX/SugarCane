@@ -52,7 +52,7 @@ buildscript {
 }
 
 group = 'org.moddingx.sugarcane'
-final String localMaven = './maven'
+final String localMaven = '/var/www/moddingx/maven'
 final SOURCE_TRANSFORM_VERSION = '2.0.1'
 
 InputStream forgeMetaStream = new URL("https://maven.minecraftforge.net/net/minecraftforge/forge/maven-metadata.xml").openStream()
