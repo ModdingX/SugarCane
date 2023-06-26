@@ -51,7 +51,7 @@ buildscript {
 
 group = 'org.moddingx.sugarcane'
 final String localMaven = '/var/www/moddingx/maven'
-final SOURCE_TRANSFORM_VERSION = '2.1.1'
+final SOURCE_TRANSFORM_VERSION = '2.1.2'
 
 InputStream forgeMetaStream = new URL("https://maven.minecraftforge.net/net/minecraftforge/forge/maven-metadata.xml").openStream()
 Metadata forgeMetadata = new MetadataXpp3Reader().read(forgeMetaStream)
@@ -218,7 +218,7 @@ if (shouldSkip) {
                 '-o', project.file('build/mcdata/sugarcane.json').toPath().toAbsolutePath().normalize().toString(),
                 '-p', project.files(project.file('build/mcdata/forge.jar'), JavaEnvironment.getLibraryPath(project, compileJava)).asPath,
                 '-s', project.file('build/mcdata/sources').toPath().toAbsolutePath().normalize().toString(),
-                '--srg',
+                '--srg', '--inheritance-params',
                 '-b', 'mcp',
                 '-b', 'net.minecraftforge'
         ]}
