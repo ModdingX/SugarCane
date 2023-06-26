@@ -1,3 +1,5 @@
+//file:noinspection ConfigurationAvoidance
+
 import org.moddingx.modgradle.api.JavaEnvironment
 import org.moddingx.modgradle.api.Versioning
 import org.moddingx.modgradle.api.task.ClasspathExec
@@ -9,8 +11,8 @@ import org.apache.commons.io.file.PathUtils
 import org.apache.maven.artifact.repository.metadata.Metadata
 import org.apache.maven.artifact.repository.metadata.io.xpp3.MetadataXpp3Reader
 import org.apache.maven.artifact.versioning.DefaultArtifactVersion
-import org.apache.maven.model.Model;
-import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
+import org.apache.maven.model.Model
+import org.apache.maven.model.io.xpp3.MavenXpp3Reader
 import org.w3c.dom.Element
 import org.w3c.dom.Node
 
@@ -24,7 +26,7 @@ import java.text.ParseException
 import java.text.SimpleDateFormat
 import java.time.LocalDate
 import java.time.ZoneId
-import java.time.temporal.ChronoUnit;
+import java.time.temporal.ChronoUnit
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 
@@ -37,23 +39,19 @@ buildscript {
     }
 
     dependencies {
-        classpath 'net.minecraftforge.gradle:ForgeGradle:5.1.41'
-        classpath 'org.moddingx:ModGradle:3.0.0'
-        classpath 'org.apache.maven:maven-artifact:3.8.5'
-        classpath 'org.apache.maven:maven-model:3.8.5'
-        classpath 'org.apache.maven:maven-repository-metadata:3.8.5'
-        classpath 'com.google.code.findbugs:jsr305:3.0.1'
-        classpath 'commons-io:commons-io:2.11.0'
-        
-        // See https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-44228
-        classpath('org.apache.logging.log4j:log4j-api') { version { strictly '[2.17.2,)' } }
-        classpath('org.apache.logging.log4j:log4j-core') { version { strictly '[2.17.2,)' } }
+        classpath 'net.minecraftforge.gradle:ForgeGradle:6.0.6'
+        classpath 'org.moddingx:ModGradle:4.0.2'
+        classpath 'org.apache.maven:maven-artifact:3.9.2'
+        classpath 'org.apache.maven:maven-model:3.9.2'
+        classpath 'org.apache.maven:maven-repository-metadata:3.9.2'
+        classpath 'com.google.code.findbugs:jsr305:3.0.2'
+        classpath 'commons-io:commons-io:2.13.0'
     }
 }
 
 group = 'org.moddingx.sugarcane'
 final String localMaven = '/var/www/moddingx/maven'
-final SOURCE_TRANSFORM_VERSION = '2.0.2'
+final SOURCE_TRANSFORM_VERSION = '2.1.0'
 
 InputStream forgeMetaStream = new URL("https://maven.minecraftforge.net/net/minecraftforge/forge/maven-metadata.xml").openStream()
 Metadata forgeMetadata = new MetadataXpp3Reader().read(forgeMetaStream)
@@ -80,7 +78,7 @@ try {
             .filter { !it.contains("SNAPSHOT") }
             .sorted(Comparator.comparing(DefaultArtifactVersion::new).reversed())
             .findFirst().orElse(parchmentVersion)
-} catch (FileNotFoundException e) {
+} catch (FileNotFoundException ignored) {
     //
 }
 
@@ -102,7 +100,7 @@ if (shouldSkip && versionForCompare != null) {
             InputStream sugarCanePom = new URL("https://maven.moddingx.org/org/moddingx/sugarcane/sugarcane-${project.mcv}/${versionForCompare}/sugarcane-${project.mcv}-${versionForCompare}.pom").openStream()
             Model sugarCaneModel = new MavenXpp3Reader().read(sugarCanePom)
             String lastForgeVersion = sugarCaneModel.getProperties().getProperty("forge_version")
-            if (lastForgeVersion != null && new DefaultArtifactVersion(lastForgeVersion).compareTo(new DefaultArtifactVersion(forgeVersion))) {
+            if (lastForgeVersion != null && (new DefaultArtifactVersion(lastForgeVersion) <=> new DefaultArtifactVersion(forgeVersion)) < 0) {
                 targetVersion = dateFormat.format(new Date())
                 shouldSkip = false
             }
@@ -112,7 +110,7 @@ if (shouldSkip && versionForCompare != null) {
     }
 }
 
-if (shouldSkip && versionForCompare != null && new DefaultArtifactVersion(parchmentVersion).compareTo(new DefaultArtifactVersion(versionForCompare)) < 0) {
+if (shouldSkip && versionForCompare != null && (new DefaultArtifactVersion(parchmentVersion) <=> new DefaultArtifactVersion(versionForCompare)) < 0) {
     // Set targetVersion to versionForCompare to give a better skip message.
     targetVersion = versionForCompare
 }
@@ -151,7 +149,8 @@ if (shouldSkip) {
         dependsOn build
         outputs.upToDateWhen { false }
         doLast {
-            File file = MavenArtifactDownloader.generate(project, "net.minecraftforge:forge:${forgeVersion}_mapped_official_${project.mcv}", false)
+            // Must use rnd.0. to not query the deobfuscation repo which does not ship full source but only patches
+            File file = MavenArtifactDownloader.generate(project, "rnd.0.net.minecraftforge:forge:${forgeVersion}_mapped_official_${project.mcv}", false)
             if (file == null) throw new IllegalStateException("Forge classes not found.")
             Files.createDirectories(project.file('build/mcdata').toPath())
             Files.copy(file.toPath(), project.file('build/mcdata/forge.jar').toPath(), StandardCopyOption.REPLACE_EXISTING)
@@ -163,7 +162,8 @@ if (shouldSkip) {
         dependsOn build
         outputs.upToDateWhen { false }
         doLast {
-            File file = MavenArtifactDownloader.generate(project, "net.minecraftforge:forge:${forgeVersion}_mapped_official_${project.mcv}:sources", false)
+            // Must use rnd.0. to not query the deobfuscation repo which does not ship full source but only patches
+            File file = MavenArtifactDownloader.generate(project, "rnd.0.net.minecraftforge:forge:${forgeVersion}_mapped_official_${project.mcv}:sources", false)
             if (file == null) throw new IllegalStateException("Forge sources not found.")
             Files.createDirectories(project.file('build/mcdata').toPath())
             extractZip(file.toPath(), project.file('build/mcdata/sources').toPath())
@@ -189,6 +189,8 @@ if (shouldSkip) {
 
     task extractInheritance(type: ClasspathExec) {
         dependsOn extractMinecraftClasses
+        inputs.dir(project.file('build/mcdata/classes'))
+        outputs.file(project.file('build/mcdata/inheritance.txt'))
         tool = "org.moddingx:SourceTransform:${SOURCE_TRANSFORM_VERSION}"
         args = provider {[
                 'inheritance',
