@@ -160,11 +160,14 @@ if (shouldSkip) {
     task extractMinecraftClasses {
         dependsOn build
         dependsOn extractMinecraftSources // We'll get the recomp jar if the game was decompiled before
+                                          // Without recomp, the parameter names in the inheritance map fill be wrong
+                                          // and we'll produce invalid output
         outputs.upToDateWhen { false }
         doLast {
             // Must use rnd.0. to not query the deobfuscation repo which does not ship full source but only patches
             File file = MavenArtifactDownloader.generate(project, "rnd.0.net.minecraftforge:forge:${forgeVersion}_mapped_official_${project.mcv}", false)
             if (file == null) throw new IllegalStateException("Forge classes not found.")
+            if (!file.getName().endsWith("recomp.jar")) throw new IllegalStateException("Coukd not get the recomp classes.")
             Files.createDirectories(project.file('build/mcdata').toPath())
             Files.copy(file.toPath(), project.file('build/mcdata/forge.jar').toPath(), StandardCopyOption.REPLACE_EXISTING)
             extractZip(file.toPath(), project.file('build/mcdata/classes').toPath())
