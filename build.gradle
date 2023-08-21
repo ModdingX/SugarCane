@@ -89,8 +89,9 @@ parchmentPomInput.close()
 
 String targetVersion = parchmentVersion
 boolean shouldSkip = Files.exists(Paths.get(localMaven).resolve(project.group.toString().replace('.', '/')).resolve("sugarcane-${project.mcv}").resolve(parchmentVersion).resolve("sugarcane-${project.mcv}-${parchmentVersion}.pom"))
+boolean isSync = System.getProperty('idea.sync.active') == 'true'
 
-if (shouldSkip && versionForCompare != null) {
+if (shouldSkip && versionForCompare != null && !isSync) {
     SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy.MM.dd")
     try {
         LocalDate zdt = LocalDate.ofInstant(dateFormat.parse(versionForCompare).toInstant(), ZoneId.systemDefault())
@@ -118,7 +119,7 @@ if (shouldSkip && versionForCompare != null && (new DefaultArtifactVersion(parch
 println("SugarCane for ${forgeVersion} parchment ${parchmentVersion}")
 println("  Version ${targetVersion}")
 
-if (shouldSkip) {
+if (shouldSkip || isSync) {
     println("Already generated. Skipping")
 
     // Generate dummy tasks so it does not fail
